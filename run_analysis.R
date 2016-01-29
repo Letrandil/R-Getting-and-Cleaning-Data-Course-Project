@@ -29,53 +29,35 @@ loadAndMergeData = function() {
     path <<- paste(getwd(),"/data/UCI HAR Dataset/", sep = "")
 
     xTrain <- read.csv(paste(path,"train/X_train.txt",sep=""), sep="", header=FALSE)
-    xTrain[,ncol(xTrain)+1] <- read.csv(paste(path,"train/y_train.txt",sep=""), sep="", header=FALSE)
-    xTrain[,ncol(xTrain)+1] <- read.csv(paste(path,"train/subject_train.txt",sep=""), sep="", header=FALSE)
-    
     xTest <- read.csv(paste(path,"test/X_test.txt",sep=""), sep="", header=FALSE)
-    xTest[,ncol(xTest)+1] <- read.csv(paste(path,"test/y_test.txt",sep=""), sep="", header=FALSE)
-    xTest[,ncol(xTest)+1] <- read.csv(paste(path,"test/subject_test.txt",sep=""), sep="", header=FALSE)
-    
-    message("load data...OK")
-    
-    rbind(xTrain, xTest)
-    
+    dataFeatures <- rbind(xTrain, xTest)
+    dataFeaturesNames <<- read.csv(paste(path,"features.txt", sep=""), sep="", header=FALSE)
+	names(dataFeatures)<- dataFeaturesNames$V2
+
+
+    yTrain <- read.csv(paste(path,"train/y_train.txt",sep=""), sep="", header=FALSE)
+    yTest <- read.csv(paste(path,"test/y_test.txt",sep=""), sep="", header=FALSE)
+    dataActivity<- rbind(yTrain, yTest)
+    names(dataActivity)<- c("activity")
+
+
+    sTrain <- read.csv(paste(path,"train/subject_train.txt",sep=""), sep="", header=FALSE)    
+    sTest <- read.csv(paste(path,"test/subject_test.txt",sep=""), sep="", header=FALSE)
+    dataSubject <- rbind(sTrain, sTest)
+	names(dataSubject)<-c("subject")
+	
+    message("load and merge data...OK")
+    dataCombine <- cbind(dataSubject, dataActivity)
+	cbind(dataFeatures, dataCombine)
 }
 
 
 # Get data mean and std. dev.
 extractData = function(df) {
 
-    features <- read.csv(paste(path,"features.txt", sep=""), sep="", header=FALSE)
-
-    scopeColumns <<- grep(".*-mean.*|.*-std.*", features[,2])
-    features <<- features[scopeColumns,]
-    
-    colCount = ncol(df)
-    scopeColumns <<- c(scopeColumns, colCount-1, colCount)
-
-    df <- df[,scopeColumns]
-
-    message("extract data...OK")
-
-    df
-}
-
-# Appropriately labels the data set with descriptive variable names
-descriptiveVariables = function(df){
-    
-    features[,2] <- gsub("^t", "time", features[,2])
-    features[,2] <- gsub("^f", "frequency", features[,2])
-    features[,2] <- gsub("Acc", "Accelerometer", features[,2])
-    features[,2] <- gsub("Gyro", "Gyroscope", features[,2])
-    features[,2] <- gsub("Mag", "Magnitude", features[,2])
-    features[,2] <- gsub("BodyBody", "Body", features[,2])
-    
-    colnames(df) <- c(features$V2, "Subject", "Activity")
-    colnames(df) <- tolower(colnames(df))
-    message("variable names...OK")
-
-    df
+    subdataFeaturesNames <- dataFeaturesNames$V2[grep("mean\\(\\)|std\\(\\)", dataFeaturesNames$V2)]
+    selectedNames <- c(as.character(subdataFeaturesNames), "subject", "activity" )
+	subset(df, select=selectedNames)
 }
 
 # Descriptive activity names to name the activities in the data set
@@ -92,17 +74,31 @@ setActivityNames = function(df){
     df
 }
 
+# Appropriately labels the data set with descriptive variable names
+descriptiveVariables = function(df){
+    
+    names(df)<-gsub("^t", "time", names(df))
+	names(df)<-gsub("^f", "frequency", names(df))
+	names(df)<-gsub("Acc", "Accelerometer", names(df))
+	names(df)<-gsub("Gyro", "Gyroscope", names(df))
+	names(df)<-gsub("Mag", "Magnitude", names(df))
+	names(df)<-gsub("BodyBody", "Body", names(df))
+
+    message("variable names...OK")
+
+    df
+}
+
+
+
 # Creates tidy data DF with the mean of each variable for each activity and each subject. 
 makeTidy = function(df){
 
-    df$activity <- as.factor(df$activity)
-    df$subject <- as.factor(df$subject)
-    
-    countnndc = ncol(df)-2
-    nndc = c(1:countnndc)
-    
-    tidy <- aggregate(df[,nndc], by=list(activity = df$activity, subject=df$subject), mean, na.rm=TRUE)
-    message("tidy data...OK")
+    library(plyr);
+	tidy <- aggregate(. ~subject + activity, df, mean)
+	tidy <- tidy[order(tidy$subject, tidy$activity),]
+	
+	message("tidy data...OK")
 
     tidy
 }
@@ -118,11 +114,13 @@ df <- loadAndMergeData()
 # Extracts only the measurements on the mean and standard deviation for each measurement. 
 df <- extractData(df)
 
+# Uses descriptive activity names to name the activities in the data set
+df <- setActivityNames(df)
+
+
 # Appropriately labels the data set with descriptive variable names. 
 df <- descriptiveVariables(df)
 
-# Uses descriptive activity names to name the activities in the data set
-df <- setActivityNames(df)
 
 # Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
 tidydf <- makeTidy(df)
