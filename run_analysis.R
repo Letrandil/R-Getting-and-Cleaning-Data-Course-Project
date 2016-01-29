@@ -71,7 +71,7 @@ descriptiveVariables = function(df){
     features[,2] <- gsub("Mag", "Magnitude", features[,2])
     features[,2] <- gsub("BodyBody", "Body", features[,2])
     
-    colnames(df) <- c(features$V2, "Activity", "Subject")
+    colnames(df) <- c(features$V2, "Subject", "Activity")
     colnames(df) <- tolower(colnames(df))
     message("variable names...OK")
 
@@ -128,3 +128,4 @@ df <- setActivityNames(df)
 tidydf <- makeTidy(df)
 
 write.table(tidydf, "tidydf.txt", sep="\t",row.names = F)
+write(names(df), file = "variables.txt", ncolumns = 1)
